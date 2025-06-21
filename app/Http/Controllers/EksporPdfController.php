@@ -104,7 +104,7 @@ public function eksporKeseluruhan(Request $request)
         }
     }
 
-    $rataRataPencapaian = $totalIndikator > 
+    $rataRataPencapaian = $totalIndikator > 0
         ? round((($tercapai + $belumTercapai) > 0 ? (($tercapai / ($tercapai + $belumTercapai)) * 100) : 0), 2)
         : 0;
 
