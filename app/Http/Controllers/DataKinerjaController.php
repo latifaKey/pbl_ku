@@ -8,6 +8,7 @@ use App\Models\Bidang;
 use App\Models\Indikator;
 use App\Models\Realisasi;
 use Carbon\Carbon;
+use DateTime; // ✅ tambahkan baris ini
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -25,61 +26,128 @@ class DataKinerjaController extends Controller
     /**
      * Menampilkan dashboard analitik utama
      */
-    public function index(Request $request)
-    {
-        $tahun = $request->tahun ?? Carbon::now()->year;
-        $bulan = $request->bulan ?? Carbon::now()->month;
-        $statusVerifikasi = $request->status_verifikasi ?? 'all';
-        $user = Auth::user();
+public function index(Request $request)
+{
+    $tahun = $request->input('tahun', now()->year);
+    $bulan = $request->input('bulan', now()->month);
+    $statusVerifikasi = $request->input('status_verifikasi', 'all');
 
-        // Ambil data untuk ringkasan KPI
-        $totalIndikator = Indikator::where('aktif', true)->count();
-        $totalIndikatorTercapai = $this->getIndikatorTercapai($tahun);
-        $persenTercapai = $totalIndikator > 0 ? round(($totalIndikatorTercapai / $totalIndikator) * 100) : 0;
+    $indikatorQuery = Indikator::with([
+        'bidang',
+        'pilar',
+        'realisasis' => function ($q) use ($tahun, $bulan) {
+            $q->where('tahun', $tahun)->where('bulan', $bulan);
+        }
+    ]);
 
-        // Data untuk gauge meter
-        $nilaiNKO = $this->hitungNKO($tahun, null);
-
-        // Data tren NKO bulanan untuk grafik
-        $trendNKO = $this->getTrendNKO($tahun);
-
-        // Data perbandingan per-pilar
-        $pilarData = $this->getDataPilar($tahun);
-
-        // Data perbandingan per-bidang
-        $bidangData = $this->getDataBidang($tahun, $bulan, $statusVerifikasi);
-
-        // Data untuk analisis
-        $analisisData = [
-            'tertinggi' => $this->getIndikatorTertinggi($tahun),
-            'terendah' => $this->getIndikatorTerendah($tahun),
-            'perkembangan' => $this->getPerkembanganBulanan($tahun),
-        ];
-
-        // Data untuk chart tambahan
-        $indikatorComposition = $this->getIndikatorComposition($tahun);
-        $statusMapping = $this->getStatusMapping($tahun);
-        $historicalTrend = $this->getHistoricalTrend();
-        $forecastData = $this->getForecastData($tahun);
-
-        return view('dataKinerja.index', compact(
-            'tahun',
-            'bulan',
-            'statusVerifikasi',
-            'totalIndikator',
-            'totalIndikatorTercapai',
-            'persenTercapai',
-            'nilaiNKO',
-            'trendNKO',
-            'pilarData',
-            'bidangData',
-            'analisisData',
-            'indikatorComposition',
-            'statusMapping',
-            'historicalTrend',
-            'forecastData'
-        ));
+    if ($statusVerifikasi === 'verified') {
+        $indikatorQuery->whereHas('realisasis', fn($q) => $q->where('diverifikasi', true));
+    } elseif ($statusVerifikasi === 'unverified') {
+        $indikatorQuery->whereHas('realisasis', fn($q) => $q->where('diverifikasi', false));
     }
+
+    $indikators = $indikatorQuery->get();
+
+    // Ringkasan
+    $totalIndikator = $indikators->count();
+    $totalIndikatorTercapai = $indikators->filter(fn($i) => $i->getPersentase($tahun, $bulan) >= 100)->count();
+    $persenTercapai = $totalIndikator > 0 ? round(($totalIndikatorTercapai / $totalIndikator) * 100, 2) : 0;
+    $nilaiNKO = $indikators->avg(fn($i) => $i->getPersentase($tahun, $bulan));
+
+    // Komposisi Indikator
+    $indikatorComposition = [
+        'Tercapai' => $totalIndikatorTercapai,
+        'Belum Tercapai' => $indikators->filter(fn($i) => $i->getPersentase($tahun, $bulan) > 0 && $i->getPersentase($tahun, $bulan) < 100)->count(),
+        'Tanpa Data' => $indikators->filter(fn($i) => $i->getPersentase($tahun, $bulan) == 0)->count(),
+    ];
+
+    // Pemetaan status indikator
+    $statusMapping = $indikators->map(fn($i) => [
+        'kode' => $i->kode,
+        'nama' => $i->nama,
+        'bidang' => $i->bidang->nama ?? '-',
+        'persen' => $i->getPersentase($tahun, $bulan),
+    ])->values();
+
+    // Tren historis (bulan lalu sampai bulan ini)
+    $historicalTrend = collect(range(1, $bulan))->map(fn($b) => [
+        'bulan' => DateTime::createFromFormat('!m', $b)->format('F'),
+        'nko' => round($indikators->avg(fn($i) => $i->getPersentase($tahun, $b)), 2),
+    ])->toArray();
+
+    // Forecast (bulan setelah ini sampai Desember, dummy prediksi)
+    $forecastData = collect(range($bulan + 1, 12))->map(fn($b) => [
+        'bulan' => DateTime::createFromFormat('!m', $b)->format('F'),
+        'nko' => round(rand(70, 100) + rand(0, 99) / 100, 2), // Dummy prediksi
+    ])->toArray();
+
+    // Data per pilar
+    $pilarData = $indikators->groupBy(fn($i) => $i->pilar->nama ?? 'Tanpa Pilar')->map(function ($group) use ($tahun, $bulan) {
+        $rata = $group->avg(fn($i) => $i->getPersentase($tahun, $bulan));
+        return round($rata, 2);
+    });
+
+    // Data per bidang
+    $bidangData = $indikators->groupBy(fn($i) => $i->bidang->nama ?? 'Tanpa Bidang')->map(function ($group) use ($tahun, $bulan) {
+        $rata = $group->avg(fn($i) => $i->getPersentase($tahun, $bulan));
+        return round($rata, 2);
+    });
+
+    // Tren NKO tahunan
+    $trendNKO = collect(range(1, 12))->map(fn($bln) => [
+        'bulan' => DateTime::createFromFormat('!m', $bln)->format('F'),
+        'nko' => round($indikators->avg(fn($i) => $i->getPersentase($tahun, $bln)), 2),
+    ])->toArray();
+
+    // Tertinggi dan terendah
+    $analisisData = [
+        'tertinggi' => $indikators->sortByDesc(fn($i) => $i->getPersentase($tahun, $bulan))->take(5)->map(fn($i) => [
+            'kode' => $i->kode,
+            'nama' => $i->nama,
+            'bidang' => $i->bidang->nama ?? '-',
+            'nilai' => round($i->getPersentase($tahun, $bulan), 2),
+        ])->values()->all(),
+
+        'terendah' => $indikators->sortBy(fn($i) => $i->getPersentase($tahun, $bulan))->take(5)->map(fn($i) => [
+            'kode' => $i->kode,
+            'nama' => $i->nama,
+            'bidang' => $i->bidang->nama ?? '-',
+            'nilai' => round($i->getPersentase($tahun, $bulan), 2),
+        ])->values()->all(),
+
+        'perkembangan' => collect(range(1, 12))->map(function ($bln) use ($indikators, $tahun) {
+            $total = $indikators->count();
+            $tercapai = $indikators->filter(fn($i) => $i->getPersentase($tahun, $bln) >= 100)->count();
+            $persen = $total > 0 ? round($tercapai / $total * 100, 2) : 0;
+
+            return [
+                'bulan' => DateTime::createFromFormat('!m', $bln)->format('F'),
+                'nko' => round($indikators->avg(fn($i) => $i->getPersentase($tahun, $bln)), 2),
+                'tercapai' => $tercapai,
+                'total' => $total,
+                'persentase' => $persen,
+            ];
+        })->toArray(),
+    ];
+
+    return view('dataKinerja.index', compact(
+        'tahun',
+        'bulan',
+        'statusVerifikasi',
+        'totalIndikator',
+        'totalIndikatorTercapai',
+        'persenTercapai',
+        'nilaiNKO',
+        'trendNKO',
+        'indikatorComposition',
+        'statusMapping',
+        'historicalTrend',
+        'forecastData',
+        'pilarData',
+        'bidangData',
+        'analisisData'
+    ));
+}
 
     /**
      * Menampilkan data kinerja per pilar

@@ -423,7 +423,7 @@
                         <i class="fas fa-chart-line"></i>
                     </div>
                 </div>
-                <div class="stat-value">{{ $nilaiNKO }}</div>
+<div class="stat-value">{{ number_format($nilaiNKO, 2) }}%</div>
                 <p class="stat-description">Nilai Kinerja Organisasi</p>
             </div>
         </div>
