@@ -1643,7 +1643,7 @@ use Illuminate\Support\Str;
               </div>
             </div>
             <div class="profile-menu-items">
-              <a href="#" class="profile-menu-item" onclick="openProfileModal(event)">
+              <a href="{{ route('profile.update') }}" class="profile-menu-item" onclick="openProfileModal(event)">
                 <i class="fas fa-user-edit"></i> Edit Profil
               </a>
               <div class="divider"></div>
