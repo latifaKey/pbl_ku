@@ -4,6 +4,18 @@
 
 @section('styles')
 <style>
+    :root {
+    --pln-surface: #ffffff;          /* latar belakang kartu putih */
+    --pln-surface-2: #f8f9fa;        /* latar permukaan sekunder */
+    --pln-accent-bg: #f1f5f9;        /* untuk header tabel/kartu */
+    --pln-border: #e2e8f0;           /* warna garis border */
+    --pln-shadow: rgba(0, 0, 0, 0.05); /* bayangan halus */
+    --pln-text: #1e293b;             /* warna teks utama */
+    --pln-text-secondary: #64748b;   /* teks sekunder */
+    --pln-blue: #0284c7;             /* warna utama tombol */
+    --pln-light-blue: #38bdf8;       /* warna tombol hover */
+    --transition-speed: 0.3s;
+}
     /* Layout */
     .dashboard-wrapper {
         display: flex;
@@ -881,26 +893,26 @@
             }
         }
 
-        // Scroll functionality with theme awareness
-        const tableResponsive = document.querySelector('.table-responsive');
-        if (tableResponsive) {
-            // Create scroll indicator with theme-appropriate styling
-            const scrollIndicator = document.createElement('div');
-            scrollIndicator.className = 'scroll-indicator';
-            scrollIndicator.textContent = 'Scroll untuk melihat lebih banyak';
-            tableResponsive.parentNode.appendChild(scrollIndicator);
+        // // Scroll functionality with theme awareness
+        // const tableResponsive = document.querySelector('.table-responsive');
+        // if (tableResponsive) {
+        //     // Create scroll indicator with theme-appropriate styling
+        //     const scrollIndicator = document.createElement('div');
+        //     scrollIndicator.className = 'scroll-indicator';
+        //     scrollIndicator.textContent = 'Scroll untuk melihat lebih banyak';
+        //     tableResponsive.parentNode.appendChild(scrollIndicator);
 
-            // Pastikan indikator scroll mengikuti tema
-            const updateScrollIndicatorTheme = () => {
-                const currentTheme = document.body.getAttribute('data-theme') || 'dark';
-                if (currentTheme === 'light') {
-                    scrollIndicator.style.opacity = '0.9';
-                } else {
-                    scrollIndicator.style.opacity = '0.8';
-                }
-            };
+        //     // Pastikan indikator scroll mengikuti tema
+        //     const updateScrollIndicatorTheme = () => {
+        //         const currentTheme = document.body.getAttribute('data-theme') || 'dark';
+        //         if (currentTheme === 'light') {
+        //             scrollIndicator.style.opacity = '0.9';
+        //         } else {
+        //             scrollIndicator.style.opacity = '0.8';
+        //         }
+        //     };
 
-            updateScrollIndicatorTheme();
+        //     updateScrollIndicatorTheme();
 
             // Check if scroll is needed
             function checkScrollNeeded() {

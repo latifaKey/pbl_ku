@@ -194,13 +194,16 @@
 @endsection
 
 
+
 @section('content')
 <div class="dashboard-content">
     <!-- Header -->
     <div class="page-header">
         <div>
             <h2><i class="fas fa-chart-line me-2"></i>Realisasi KPI</h2>
-            <div class="page-header-subtitle">Pengelolaan data realisasi kinerja bidang</div>
+            <div class="page-header-subtitle">
+                Pengelolaan data realisasi kinerja {{ $isMaster ? 'per pilar' : 'per bidang' }}
+            </div>
         </div>
     </div>
 
@@ -224,110 +227,93 @@
         </form>
     </div>
 
-    <!-- Tabel Data -->
-    <div class="table-card mt-4">
-        <div class="card-header">Data Realisasi KPI</div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>No</th>
-                            <th>Bidang</th>
-                            <th>Indikator</th>
-                            <th>Target</th>
-                            <th>Realisasi</th>
-                            <th>Capaian</th>
-                            <th>Status</th>
-                            <th>Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse ($indikators as $index => $indikator)
-                            @php
-                                $realisasi = $indikator->realisasis->first();
-                                $nilai = $realisasi->nilai ?? null;
-                                $targetNilai = $indikator->target_nilai ?? null;
-                                $persentase = $targetNilai ? ($nilai / $targetNilai) * 100 : 0;
-                                $progressClass = $persentase >= 90 ? 'bg-success' : ($persentase >= 70 ? 'bg-warning' : 'bg-danger');
-                                $query = [
-                                    'tahun' => request('tahun'),
-                                    'bulan' => request('bulan'),
-                                    'periode_tipe' => request('periode_tipe'),
-                                    'tanggal' => request('tanggal'),
-                                ];
-                            @endphp
+    <!-- Data Tabel -->
+    @foreach($grouped as $kode => $group)
+        <div class="table-card mt-4">
+            <div class="card-header">
+                {{ $isMaster ? 'Pilar' : 'Bidang' }} {{ $kode }} - {{ $group['nama'] }}
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
                             <tr>
-                                <td>{{ $loop->iteration }}</td>
-                                <td>{{ $indikator->bidang->nama ?? '-' }}</td>
-                                <td>
-                                    <strong>{{ $indikator->kode }}</strong> - {{ $indikator->nama }}
-                                    @if($indikator->deskripsi)
-                                        <div class="small text-muted">{{ Str::limit($indikator->deskripsi, 60) }}</div>
+                                <th>No</th>
+                                <th>Kode</th>
+                                <th>Indikator</th>
+                                @if($isMaster)
+                                    <th>Bidang</th>
+                                @endif
+                                <th>Target</th>
+                                <th>Realisasi</th>
+                                <th>Capaian</th>
+                                <th>Status</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($group['indikators'] as $index => $indikator)
+                                @php
+                                    $realisasi = $indikator->firstRealisasi;
+                                    $nilai = $realisasi?->nilai;
+                                    $target = $indikator->target_nilai;
+                                    $persentase = $indikator->persentase ?? 0;
+                                    $progressClass = $persentase >= 90 ? 'bg-success' : ($persentase >= 70 ? 'bg-warning' : 'bg-danger');
+                                    $query = ['tanggal' => $tanggal];
+                                @endphp
+                                <tr>
+                                    <td>{{ $index + 1 }}</td>
+                                    <td>{{ $indikator->kode }}</td>
+                                    <td>{{ $indikator->nama }}</td>
+                                    @if($isMaster)
+                                        <td>{{ $indikator->bidang->nama ?? '-' }}</td>
                                     @endif
-                                </td>
-                                <td>
-                                    @if ($targetNilai !== null)
-                                        {{ number_format($targetNilai, 2) }}
-                                    @else
-                                        <span class="text-muted fst-italic">Belum diisi</span>
-                                    @endif
-                                </td>
-                                <td>
-                                    {{ $nilai !== null ? number_format($nilai, 2) : '-' }}
-                                </td>
-                                <td>
-                                    @if ($targetNilai !== null)
+                                    <td>{{ number_format($target, 2) }}</td>
+                                    <td>{{ $nilai !== null ? number_format($nilai, 2) : '-' }}</td>
+                                    <td>
                                         <div class="progress-wrapper">
                                             <div class="progress">
                                                 <div class="progress-bar {{ $progressClass }}" style="width: {{ $persentase }}%;"></div>
                                             </div>
                                             <div class="progress-value">{{ number_format($persentase, 2) }}%</div>
                                         </div>
-                                    @else
-                                        <span class="text-muted fst-italic">-</span>
-                                    @endif
-                                </td>
-
-                                <td>
-                                    @if ($indikator->diverifikasi)
-                                        <span class="badge bg-success">Terverifikasi</span>
-                                        <small>oleh: {{ optional(App\Models\User::find($indikator->verifikasi_oleh))->name }}</small><br>
-                                        <small>{{ \Carbon\Carbon::parse($indikator->verifikasi_pada)->format('d M Y H:i') }}</small>
-                                    @else
-                                        <span class="badge bg-warning text-dark">Belum Diverifikasi</span>
-                                    @endif
-                                </td>
-                                <td>
-                                    <div class="btn-group">
-                                        @if($realisasi)
-                                            <a href="{{ route('realisasi.edit', array_merge(['indikator' => $indikator->id], $query)) }}" class="btn btn-warning btn-sm">
-                                                <i class="fas fa-edit"></i> Edit
-                                            </a>
+                                    </td>
+                                    <td>
+                                        @if ($indikator->firstRealisasi?->diverifikasi)
+                                            <span class="badge bg-success">Terverifikasi</span>
+                                            <div class="small text-muted">
+                                                oleh: {{ optional(App\Models\User::find($indikator->verifikasi_oleh))->name }}<br>
+                                                {{ \Carbon\Carbon::parse($indikator->verifikasi_pada)->format('d M Y H:i') }}
+                                            </div>
                                         @else
-                                            <a href="{{ route('realisasi.create', array_merge(['indikator' => $indikator->id], $query)) }}" class="btn btn-primary btn-sm">
-                                                <i class="fas fa-plus"></i> Input
-                                            </a>
+                                            <span class="badge bg-warning text-dark">Belum Diverifikasi</span>
                                         @endif
-                                    </div>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="9" class="text-center text-muted fst-italic">Tidak ada data indikator.</td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="d-flex justify-content-center mt-4">
-                {{ $indikators->withQueryString()->links('pagination.custom') }}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group">
+                                            @if($realisasi)
+                                                <a href="{{ route('realisasi.edit', array_merge(['indikator' => $indikator->id], $query)) }}" class="btn btn-warning btn-sm">
+                                                    <i class="fas fa-edit"></i> Edit
+                                                </a>
+                                            @else
+                                                <a href="{{ route('realisasi.create', array_merge(['indikator' => $indikator->id], $query)) }}" class="btn btn-primary btn-sm">
+                                                    <i class="fas fa-plus"></i> Input
+                                                </a>
+                                            @endif
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
-    </div>
+    @endforeach
 </div>
 @endsection
+
+
 
 
 

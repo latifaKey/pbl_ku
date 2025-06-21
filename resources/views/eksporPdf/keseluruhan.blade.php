@@ -153,22 +153,10 @@
             </tr>
         </thead>
         <tbody>
-            <tr>
-                <td>Total Indikator</td>
-                <td class="text-right">{{ $totalIndikator }}</td>
-            </tr>
-            <tr>
-                <td>Indikator Tercapai</td>
-                <td class="text-right">{{ $tercapai }}</td>
-            </tr>
-            <tr>
-                <td>Indikator Belum Tercapai</td>
-                <td class="text-right">{{ $belumTercapai }}</td>
-            </tr>
-            <tr>
-                <td>Rata-rata Pencapaian</td>
-                <td class="text-right">{{ $rataRataPencapaian }}%</td>
-            </tr>
+            <tr><td>Total Indikator</td><td class="text-right">{{ $totalIndikator }}</td></tr>
+            <tr><td>Indikator Tercapai</td><td class="text-right">{{ $tercapai }}</td></tr>
+            <tr><td>Indikator Belum Tercapai</td><td class="text-right">{{ $belumTercapai }}</td></tr>
+            <tr><td>Rata-rata Pencapaian</td><td class="text-right">{{ $rataRataPencapaian }}%</td></tr>
         </tbody>
     </table>
 
@@ -178,7 +166,7 @@
         <div class="pilar-header">Pilar {{ $pilar->kode }}: {{ $pilar->nama }}</div>
 
         @if($pilar->indikators->isEmpty())
-            <p>Tidak ada indikator untuk pilar ini.</p>
+            <p><em>Tidak ada indikator untuk pilar ini.</em></p>
         @else
             <table>
                 <thead>
@@ -187,42 +175,44 @@
                         <th>Kode</th>
                         <th>Indikator</th>
                         <th>Bidang</th>
-                        <th>Target</th>
-                        <th>Realisasi</th>
-                        <th>Pencapaian</th>
+                        <th class="text-right">Target</th>
+                        <th class="text-right">Realisasi</th>
+                        <th class="text-right">Pencapaian</th>
                         <th>Status</th>
                     </tr>
                 </thead>
-                <tbody>
-                    @foreach($pilar->indikators as $index => $indikator)
-                        <tr>
-                            <td>{{ $index + 1 }}</td>
-                            <td>{{ $indikator->kode }}</td>
-                            <td>{{ $indikator->nama }}</td>
-                            <td>{{ $indikator->bidang->nama ?? '-' }}</td>
-                            <td class="text-right">
-                                {{ isset($indikator->realisasi_target) ? number_format($indikator->realisasi_target, 2) : '-' }}
-                            </td>
-                            <td class="text-right">
-                                {{ isset($indikator->realisasi_nilai) ? number_format($indikator->realisasi_nilai, 2) : '-' }}
-                            </td>
-                            <td class="text-right">
-                                {{ isset($indikator->realisasi_persentase) ? number_format($indikator->realisasi_persentase, 2) . '%' : '-' }}
-                            </td>
-                            <td>
-                                @php
-                                    $status = $indikator->realisasi_status ?? 'Belum Ada Data';
-                                    $statusClass = match($status) {
-                                        'Tercapai' => 'status-success',
-                                        'Belum Tercapai' => 'status-danger',
-                                        default => 'status-danger'
-                                    };
-                                @endphp
-                                <span class="status {{ $statusClass }}">{{ $status }}</span>
-                            </td>
-                        </tr>
-                    @endforeach
-                </tbody>
+<tbody>
+    @foreach($pilar->indikators as $index => $indikator)
+        <tr>
+            <td>{{ $index + 1 }}</td>
+            <td>{{ $indikator['kode'] }}</td>
+            <td>{{ $indikator['nama'] }}</td>
+            <td>{{ $indikator['bidang_nama'] }}</td>
+            <td class="text-right">
+                {{ $indikator['realisasi_target'] !== null ? number_format($indikator['realisasi_target'], 2) : '-' }}
+            </td>
+            <td class="text-right">
+                {{ $indikator['realisasi_nilai'] !== null ? number_format($indikator['realisasi_nilai'], 2) : '-' }}
+            </td>
+            <td class="text-right">
+                {{ $indikator['realisasi_persentase'] !== null ? number_format($indikator['realisasi_persentase'], 2) . '%' : '-' }}
+            </td>
+            <td>
+                @php
+                    $status = $indikator['realisasi_status'];
+                    $statusClass = match($status) {
+                        'Tercapai' => 'status-success',
+                        'Hampir Tercapai' => 'status-warning',
+                        'Belum Tercapai' => 'status-danger',
+                        default => 'status-muted'
+                    };
+                @endphp
+                <span class="status {{ $statusClass }}">{{ $status }}</span>
+            </td>
+        </tr>
+    @endforeach
+</tbody>
+
             </table>
         @endif
 
@@ -236,5 +226,8 @@
         <p>&copy; {{ date('Y') }} PT PLN (Persero). Hak Cipta Dilindungi.</p>
     </div>
 </body>
+
+
+
 
 </html>

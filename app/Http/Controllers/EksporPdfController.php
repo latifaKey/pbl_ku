@@ -2,26 +2,21 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Pilar;
 use App\Models\Bidang;
-use App\Models\Realisasi;
 use App\Models\Indikator;
+use App\Models\Realisasi;
 use PDF;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 
 class EksporPdfController extends Controller
 {
-    /**
-     * Halaman awal ekspor PDF
-     */
     public function index()
     {
         $user = Auth::user();
 
-        // Hanya admin dan master admin yang boleh mengakses
         if (!($user->isAdmin() || $user->isMasterAdmin())) {
             return redirect()->route('dashboard')->with('error', 'Anda tidak memiliki akses ke fitur ini.');
         }
@@ -32,34 +27,25 @@ class EksporPdfController extends Controller
         return view('eksporPdf.index', compact('bidangs', 'pilars'));
     }
 
-    /**
-     * Ekspor laporan KPI keseluruhan
-     */
 public function eksporKeseluruhan(Request $request)
 {
-    $user = Auth::user();
-
-    if (!$user->isMasterAdmin()) {
-        return redirect()->route('dashboard')->with('error', 'Anda tidak memiliki akses ke fitur ini.');
-    }
-
-    // Validasi input tanggal dari tahun & bulan
     $request->validate([
         'tahun' => 'required|integer|min:2020|max:' . date('Y'),
         'bulan' => 'required|integer|min:1|max:12',
     ]);
 
-    $tanggal = Carbon::createFromDate($request->tahun, $request->bulan, 1)->toDateString();
     $tahun = $request->tahun;
     $bulan = $request->bulan;
+    $tanggal = Carbon::createFromDate($tahun, $bulan, 1);
 
+    // Ambil semua data pilar, indikator, realisasi & target
     $pilars = Pilar::with([
         'indikators' => function ($q) {
             $q->orderBy('kode');
         },
         'indikators.bidang',
-        'indikators.realisasis' => function ($q) use ($tanggal) {
-            $q->whereDate('tanggal', $tanggal);
+        'indikators.realisasis' => function ($q) use ($tahun, $bulan) {
+            $q->whereYear('tanggal', $tahun)->whereMonth('tanggal', $bulan);
         },
         'indikators.targetKPI.tahunPenilaian'
     ])->orderBy('urutan')->get();
@@ -68,52 +54,57 @@ public function eksporKeseluruhan(Request $request)
     $tercapai = 0;
     $belumTercapai = 0;
 
-    foreach ($pilars as $pilar) {
-        foreach ($pilar->indikators as $indikator) {
+    // Map data menjadi array agar aman untuk Blade/PDF
+    $pilars = $pilars->map(function ($pilar) use ($tahun, &$totalIndikator, &$tercapai, &$belumTercapai) {
+        $indikators = $pilar->indikators->map(function ($indikator) use ($tahun, &$totalIndikator, &$tercapai, &$belumTercapai) {
             $totalIndikator++;
 
-            $realisasi = $indikator->realisasis->first();
+            $realisasi = $indikator->realisasis->sortByDesc('tanggal')->first();
             $targetKPI = $indikator->targetKPI->where('tahunPenilaian.tahun', $tahun)->first();
 
-            $target = $targetKPI?->target_tahunan ?? 0;
+            $target = $targetKPI?->target_tahunan ?? 100;
             $nilai = $realisasi?->nilai;
 
             $persentase = ($nilai !== null && $target > 0)
-                ? ($nilai / $target) * 100
+                ? round(($nilai / $target) * 100, 2)
                 : 0;
 
-            // Inject ke objek untuk dipakai di Blade
-            $indikator->realisasi_nilai = $nilai;
-            $indikator->realisasi_target = $target;
-            $indikator->realisasi_persentase = round($persentase, 2);
-            $indikator->realisasi_status = match (true) {
+            $status = match (true) {
                 is_null($nilai) => 'Belum Ada Data',
                 $persentase >= 100 => 'Tercapai',
                 $persentase >= 90 => 'Hampir Tercapai',
                 default => 'Belum Tercapai'
             };
 
-            // Hitung ringkasan
             if ($nilai !== null) {
-                if ($persentase >= 100) {
-                    $tercapai++;
-                } else {
-                    $belumTercapai++;
-                }
+                if ($persentase >= 100) $tercapai++;
+                else $belumTercapai++;
             }
-        }
-    }
+
+            return [
+                'kode' => $indikator->kode,
+                'nama' => $indikator->nama,
+                'bidang_nama' => $indikator->bidang->nama ?? '-',
+                'realisasi_target' => $target,
+                'realisasi_nilai' => $nilai,
+                'realisasi_persentase' => $persentase,
+                'realisasi_status' => $status,
+            ];
+        });
+
+        $pilar->indikators = $indikators;
+        return $pilar;
+    });
 
     $rataRataPencapaian = $totalIndikator > 0
-        ? round((($tercapai + $belumTercapai) > 0 ? (($tercapai / ($tercapai + $belumTercapai)) * 100) : 0), 2)
+        ? round(($tercapai / $totalIndikator) * 100, 2)
         : 0;
 
     $data = [
         'title' => 'Laporan KPI Keseluruhan',
-        'subtitle' => 'Periode: ' . Carbon::parse($tanggal)->translatedFormat('F Y'),
+        'subtitle' => 'Periode: ' . $tanggal->translatedFormat('F Y'),
         'tanggal_cetak' => Carbon::now()->translatedFormat('d F Y H:i'),
         'pilars' => $pilars,
-        'tanggal' => $tanggal,
         'totalIndikator' => $totalIndikator,
         'tercapai' => $tercapai,
         'belumTercapai' => $belumTercapai,
@@ -121,9 +112,8 @@ public function eksporKeseluruhan(Request $request)
     ];
 
     $pdf = PDF::loadView('eksporPdf.keseluruhan', $data);
-    return $pdf->download("Laporan_KPI_Keseluruhan_{$request->tahun}_{$request->bulan}.pdf");
+    return $pdf->download("Laporan_KPI_Keseluruhan_{$tahun}_{$bulan}.pdf");
 }
-
 
 
 }

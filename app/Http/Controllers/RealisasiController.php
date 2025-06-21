@@ -18,66 +18,76 @@ class RealisasiController extends Controller
 public function index(Request $request)
 {
     $user = Auth::user();
-
     $tanggal = $request->input('tanggal', Carbon::today()->toDateString());
     $parsedDate = Carbon::parse($tanggal);
     $tahun = $parsedDate->year;
 
+    // Query dasar indikator
     $indikatorsQuery = Indikator::with([
         'pilar',
         'bidang',
         'targetKPI' => function ($query) use ($tahun) {
-            $query->whereHas('tahunPenilaian', function ($q) use ($tahun) {
-                $q->where('tahun', $tahun);
-            });
+            $query->whereHas('tahunPenilaian', fn($q) => $q->where('tahun', $tahun));
         },
-            'realisasis' => function ($query) use ($tanggal) {
+        'realisasis' => function ($query) use ($tanggal) {
             $query->whereDate('tanggal', $tanggal);
         }
-
     ]);
 
-    if ($user->isMasterAdmin()) {
-        // akses semua indikator
-    } elseif ($user->isAdmin()) {
+    // Filter berdasarkan role
+    if ($user->isAdmin()) {
         $bidang = $user->getBidang();
         if (!$bidang) {
             return redirect()->route('dashboard')->with('error', 'Bidang tidak ditemukan.');
         }
         $indikatorsQuery->where('bidang_id', $bidang->id);
-    } else {
+    } elseif (!$user->isMasterAdmin()) {
         return redirect()->route('dashboard')->with('error', 'Anda tidak memiliki akses.');
     }
 
-    $indikators = $indikatorsQuery->orderBy('kode')->paginate(10)->withQueryString();
+    $indikators = $indikatorsQuery->orderBy('kode')->get();
+
+    // Siapkan struktur per pilar / per bidang
+    $grouped = [];
 
     foreach ($indikators as $indikator) {
-    $realisasi = $indikator->realisasis->first();
+        $realisasi = $indikator->realisasis->first();
 
-    $targetKPI = $indikator->targetKPI
-        ->where('tahunPenilaian.tahun', $tahun)
-        ->first();
-    $target_nilai = $targetKPI ? $targetKPI->target_tahunan : 0;
+        $targetKPI = $indikator->targetKPI
+            ->where('tahunPenilaian.tahun', $tahun)
+            ->first();
 
-    $persentase = 0;
-    if ($realisasi && $target_nilai > 0) {
-        $persentase = $targetKPI
-            ? $targetKPI->hitungPersentasePencapaian($realisasi->nilai)
-            : ($realisasi->nilai / $target_nilai) * 100;
+        $target_nilai = $targetKPI ? $targetKPI->target_tahunan : 0;
+        $persentase = 0;
+
+        if ($realisasi && $target_nilai > 0) {
+            $persentase = $targetKPI
+                ? $targetKPI->hitungPersentasePencapaian($realisasi->nilai)
+                : ($realisasi->nilai / $target_nilai) * 100;
+        }
+
+        // Simpan ke objek
+        $indikator->firstRealisasi = $realisasi;
+        $indikator->persentase = $persentase;
+        $indikator->target_nilai = $target_nilai;
+
+        // Grouping
+        if ($user->isMasterAdmin()) {
+            $key = $indikator->pilar->kode ?? 'Tanpa Pilar';
+            $grouped[$key]['nama'] = $indikator->pilar->nama ?? 'Tanpa Nama';
+        } else {
+            $key = $indikator->bidang->kode ?? 'Tanpa Bidang';
+            $grouped[$key]['nama'] = $indikator->bidang->nama ?? 'Tanpa Nama';
+        }
+
+        $grouped[$key]['indikators'][] = $indikator;
     }
 
-    // Gunakan nama custom agar tidak bentrok
-    $indikator->firstRealisasi = $realisasi;
-    $indikator->persentase = $persentase;
-    $indikator->nilai_id = $realisasi?->id;
-    $indikator->diverifikasi = $realisasi?->diverifikasi ?? false;
-    $indikator->verifikasi_oleh = $realisasi?->verifikasi_oleh;
-    $indikator->verifikasi_pada = $realisasi?->verifikasi_pada;
-    $indikator->target_nilai = $target_nilai;
-}
-
-
-    return view('realisasi.index', compact('indikators', 'tanggal', 'tahun'));
+    return view('realisasi.index', [
+        'grouped' => $grouped,
+        'tanggal' => $tanggal,
+        'isMaster' => $user->isMasterAdmin(),
+    ]);
 }
 
 
@@ -136,7 +146,6 @@ public function store(Request $request, Indikator $indikator)
     $realisasi = new Realisasi([
         'indikator_id' => $indikator->id,
         'user_id' => $user->id,
-        'uploaded_by' => $user->id, // ← ✅ Tambahkan ini
         'tanggal' => $tanggal->toDateString(),
         'tahun' => $tanggal->year,
         'bulan' => $tanggal->month,
