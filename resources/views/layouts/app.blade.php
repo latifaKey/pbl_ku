@@ -1643,7 +1643,7 @@ use Illuminate\Support\Str;
               </div>
             </div>
             <div class="profile-menu-items">
-              <a href="{{ route('profile.update') }}" class="profile-menu-item" onclick="openProfileModal(event)">
+              <a href="#" class="profile-menu-item" onclick="openProfileModal(event)">
                 <i class="fas fa-user-edit"></i> Edit Profil
               </a>
               <div class="divider"></div>
@@ -1658,95 +1658,619 @@ use Illuminate\Support\Str;
         </div>
       </div>
     </div>
+        <!-- Dropdown notifikasi -->
+        <div class="notification-dropdown" id="notificationDropdown">
+            <div class="notification-header">
+            <h5>Notifikasi</h5>
+            <button class="close-btn" id="closeNotification"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="notification-body">
+            @if(Auth::check() && Auth::user()->role === 'asisten_manager')
+                @php
+                $unverifiedItems = App\Models\Realisasi::with(['indikator', 'user'])
+                    ->where('diverifikasi', false)
+                    ->latest()
+                    ->take(5)
+                    ->get();
 
+                $unapprovedItems = App\Models\TargetKPI::with(['indikator', 'user'])
+                    ->where('disetujui', false)
+                    ->latest()
+                    ->take(5)
+                    ->get();
+                @endphp
+
+                @if($unverifiedItems->count() > 0)
+                <div class="notification-section">
+                    <h6>Realisasi yang Perlu Diverifikasi</h6>
+                    @foreach($unverifiedItems as $item)
+                    <a href="{{ route('verifikasi.show', $item->id) }}" class="notification-item">
+                        <div class="notification-icon bg-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <div class="notification-content">
+                        <p class="notification-title">{{ $item->indikator->kode }} - {{ $item->indikator->nama }}</p>
+                        <p class="notification-info">Diinput oleh: {{ $item->user->name }}</p>
+                        <p class="notification-time">{{ $item->created_at->diffForHumans() }}</p>
+                        </div>
+                    </a>
+                    @endforeach
+                    @if($unverifiedCount > 5)
+                    <a href="{{ route('verifikasi.index') }}" class="notification-more">Lihat {{ $unverifiedCount - 5 }} lainnya</a>
+                    @endif
+                </div>
+                @endif
+
+                @if($unapprovedItems->count() > 0)
+                <div class="notification-section">
+                    <h6>Target yang Perlu Disetujui</h6>
+                    @foreach($unapprovedItems as $item)
+                    <a href="{{ route('targetKinerja.index') }}" class="notification-item">
+                        <div class="notification-icon bg-info">
+                        <i class="fas fa-bullseye"></i>
+                        </div>
+                        <div class="notification-content">
+                        <p class="notification-title">{{ $item->indikator->kode }} - {{ $item->indikator->nama }}</p>
+                        <p class="notification-info">Diinput oleh: {{ $item->user->name }}</p>
+                        <p class="notification-time">{{ $item->created_at->diffForHumans() }}</p>
+                        </div>
+                    </a>
+                    @endforeach
+                    @if($unapprovedCount > 5)
+                    <a href="{{ route('targetKinerja.index') }}" class="notification-more">Lihat {{ $unapprovedCount - 5 }} lainnya</a>
+                    @endif
+                </div>
+                @endif
+
+                @if($unverifiedItems->count() === 0 && $unapprovedItems->count() === 0)
+                <div class="notification-empty">
+                    <i class="fas fa-check-circle"></i>
+                    <p>Tidak ada notifikasi baru</p>
+                </div>
+                @endif
+            @else
+                <div class="notification-empty">
+                <i class="fas fa-bell-slash"></i>
+                <p>Tidak ada notifikasi baru</p>
+                </div>
+            @endif
+            </div>
+        </div>
     <main class="main">
       @yield('content')
     </main>
   </div>
 
-  <!-- Dropdown notifikasi -->
-  <div class="notification-dropdown" id="notificationDropdown">
-    <div class="notification-header">
-      <h5>Notifikasi</h5>
-      <button class="close-btn" id="closeNotification"><i class="fas fa-times"></i></button>
-    </div>
-    <div class="notification-body">
-      @if(Auth::check() && Auth::user()->role === 'asisten_manager')
-        @php
-          $unverifiedItems = App\Models\Realisasi::with(['indikator', 'user'])
-            ->where('diverifikasi', false)
-            ->latest()
-            ->take(5)
-            ->get();
-
-          $unapprovedItems = App\Models\TargetKPI::with(['indikator', 'user'])
-            ->where('disetujui', false)
-            ->latest()
-            ->take(5)
-            ->get();
-        @endphp
-
-        @if($unverifiedItems->count() > 0)
-          <div class="notification-section">
-            <h6>Realisasi yang Perlu Diverifikasi</h6>
-            @foreach($unverifiedItems as $item)
-              <a href="{{ route('verifikasi.show', $item->id) }}" class="notification-item">
-                <div class="notification-icon bg-warning">
-                  <i class="fas fa-exclamation-triangle"></i>
-                </div>
-                <div class="notification-content">
-                  <p class="notification-title">{{ $item->indikator->kode }} - {{ $item->indikator->nama }}</p>
-                  <p class="notification-info">Diinput oleh: {{ $item->user->name }}</p>
-                  <p class="notification-time">{{ $item->created_at->diffForHumans() }}</p>
-                </div>
-              </a>
-            @endforeach
-            @if($unverifiedCount > 5)
-              <a href="{{ route('verifikasi.index') }}" class="notification-more">Lihat {{ $unverifiedCount - 5 }} lainnya</a>
-            @endif
-          </div>
-        @endif
-
-        @if($unapprovedItems->count() > 0)
-          <div class="notification-section">
-            <h6>Target yang Perlu Disetujui</h6>
-            @foreach($unapprovedItems as $item)
-              <a href="{{ route('targetKinerja.index') }}" class="notification-item">
-                <div class="notification-icon bg-info">
-                  <i class="fas fa-bullseye"></i>
-                </div>
-                <div class="notification-content">
-                  <p class="notification-title">{{ $item->indikator->kode }} - {{ $item->indikator->nama }}</p>
-                  <p class="notification-info">Diinput oleh: {{ $item->user->name }}</p>
-                  <p class="notification-time">{{ $item->created_at->diffForHumans() }}</p>
-                </div>
-              </a>
-            @endforeach
-            @if($unapprovedCount > 5)
-              <a href="{{ route('targetKinerja.index') }}" class="notification-more">Lihat {{ $unapprovedCount - 5 }} lainnya</a>
-            @endif
-          </div>
-        @endif
-
-        @if($unverifiedItems->count() === 0 && $unapprovedItems->count() === 0)
-          <div class="notification-empty">
-            <i class="fas fa-check-circle"></i>
-            <p>Tidak ada notifikasi baru</p>
-          </div>
-        @endif
-      @else
-        <div class="notification-empty">
-          <i class="fas fa-bell-slash"></i>
-          <p>Tidak ada notifikasi baru</p>
-        </div>
-      @endif
-    </div>
-  </div>
-
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/js/all.min.js"></script>
 
+  <!-- Overlay untuk animasi logout -->
+  <div class="logout-overlay" id="logoutOverlay">
+    <div class="logout-spinner"></div>
+    <div class="logout-message">Keluar Dari Sistem...</div>
+  </div>
+
+  <!-- Modal Edit Profil -->
+  <div class="profile-modal" id="profileModal">
+    <div class="profile-modal-content">
+      <div class="profile-modal-header">
+        <h5 class="profile-modal-title">Edit Profil</h5>
+        <button type="button" class="profile-modal-close" id="closeProfileModal" onclick="closeProfileModal()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="profile-modal-body">
+        <div class="profile-tabs">
+          <button class="profile-tab active" data-tab="info">Informasi Dasar</button>
+          <button class="profile-tab" data-tab="photo">Foto Profil</button>
+          <button class="profile-tab" data-tab="password">Ubah Password</button>
+        </div>
+
+        <div class="profile-tab-content active" id="tab-info">
+          <form id="updateProfileForm" action="/profile" method="POST">
+            @csrf
+            <input type="hidden" name="update_type" value="profile">
+
+            <div class="form-group">
+              <label for="name" class="form-label">Nama Lengkap</label>
+              <input type="text" class="form-control" id="name" name="name" value="{{ Auth::user()->name }}">
+            </div>
+
+            <div class="form-group">
+              <label for="email" class="form-label">Email</label>
+              <input type="email" class="form-control" id="email" name="email" value="{{ Auth::user()->email }}">
+            </div>
+
+
+            <div class="form-actions">
+              <button type="submit" class="btn-primary">
+                <i class="fas fa-save"></i> Simpan Perubahan
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div class="profile-tab-content" id="tab-photo">
+          <form id="updatePhotoForm" action="/profile/photo" method="POST" enctype="multipart/form-data">
+            @csrf
+
+            <div class="profile-photo-preview">
+              @if(Auth::user()->profile_photo)
+                <img src="{{ Storage::url(Auth::user()->profile_photo) }}" alt="{{ Auth::user()->name }}" id="photoPreview">
+              @else
+                <div class="profile-photo-placeholder">
+                  <i class="fas fa-user"></i>
+                </div>
+              @endif
+            </div>
+
+            <div class="profile-photo-upload-container">
+              <label for="profile_photo" class="photo-upload-btn">
+                <i class="fas fa-camera"></i> Pilih Foto
+              </label>
+              <input type="file" id="profile_photo" name="profile_photo" accept="image/*" class="photo-input">
+              <span class="photo-filename" id="photoFilename">Tidak ada file yang dipilih</span>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn-primary" id="uploadPhotoBtn" disabled>
+                <i class="fas fa-upload"></i> Upload Foto
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div class="profile-tab-content" id="tab-password">
+          <form id="updatePasswordForm" action="/profile" method="POST">
+            @csrf
+            <input type="hidden" name="update_type" value="password">
+
+            <!-- Tampilkan pesan sukses yang lebih menonjol -->
+            @if(session('success'))
+            <div class="alert alert-success mb-4" style="background: linear-gradient(135deg, #28a745, #5cb85c); color: white; border-radius: 10px; padding: 15px; box-shadow: 0 4px 15px rgba(40, 167, 69, 0.2);">
+              <div class="d-flex align-items-center mb-2">
+                <i class="fas fa-check-circle mr-2" style="font-size: 20px;"></i>
+                <strong>{{ session('success') }}</strong>
+              </div>
+              <p class="mb-0" style="font-size: 14px;">
+                Untuk menggunakan password baru Anda, silakan:
+                <ol class="mt-2 mb-0" style="padding-left: 20px;">
+                  <li>Klik Logout di menu profil</li>
+                  <li>Login kembali dengan password baru Anda</li>
+                </ol>
+              </p>
+            </div>
+            @endif
+
+            <!-- Success message yang akan ditampilkan via JavaScript -->
+            <div id="manual-success-message" style="display:none;" class="alert alert-success mb-4" style="background: linear-gradient(135deg, #28a745, #5cb85c); color: white; border-radius: 10px; padding: 15px; box-shadow: 0 4px 15px rgba(40, 167, 69, 0.2);">
+              <div class="d-flex align-items-center mb-2">
+                <i class="fas fa-check-circle mr-2" style="font-size: 20px;"></i>
+                <strong>Password berhasil diperbarui!</strong>
+              </div>
+              <p class="mb-0" style="font-size: 14px;">
+                Untuk menggunakan password baru Anda, silakan:
+                <ol class="mt-2 mb-0" style="padding-left: 20px;">
+                  <li>Klik Logout di menu profil</li>
+                  <li>Login kembali dengan password baru Anda</li>
+                </ol>
+              </p>
+            </div>
+
+            <!-- Tampilkan error jika ada -->
+            @if($errors->any())
+            <div class="alert alert-danger mb-3">
+                <ul class="mb-0">
+                    @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+            @endif
+
+            <div class="form-group">
+              <label for="password" class="form-label">Password Baru</label>
+              <div class="password-input-group">
+                <input type="password" class="form-control" id="password" name="password" required>
+                <button type="button" class="password-toggle">
+                  <i class="fas fa-eye"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="password_confirmation" class="form-label">Konfirmasi Password</label>
+              <div class="password-input-group">
+                <input type="password" class="form-control" id="password_confirmation" name="password_confirmation" required>
+                <button type="button" class="password-toggle">
+                  <i class="fas fa-eye"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="password-strength">
+              <div class="strength-bar">
+                <div class="strength-progress" id="passwordStrength"></div>
+              </div>
+              <span class="strength-text" id="strengthText">Belum diisi</span>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn-primary">
+                <i class="fas fa-lock"></i> Perbarui Password
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live clock script yang lebih baik -->
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    console.log('DOM fully loaded');
+
+    const editProfileBtn = document.getElementById('editProfileBtn');
+    const profileModal = document.getElementById('profileModal');
+
+    if (editProfileBtn) {
+      editProfileBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (profileModal) {
+          profileModal.style.display = 'flex';
+          profileModal.style.justifyContent = 'center';
+          profileModal.style.alignItems = 'center';
+          profileModal.classList.add('active');
+          document.body.style.overflow = 'hidden';
+        }
+      });
+    }
+
+    const dateDisplay = document.getElementById('date-display');
+    if (dateDisplay) {
+      dateDisplay.addEventListener('click', function () {
+        this.classList.toggle('show-tooltip');
+      });
+
+      document.addEventListener('click', function (event) {
+        if (!dateDisplay.contains(event.target)) {
+          dateDisplay.classList.remove('show-tooltip');
+        }
+      });
+    }
+
+    const themeToggle = document.getElementById('theme-toggle');
+    const body = document.body;
+    const currentTheme = localStorage.getItem('theme') || 'dark';
+    body.setAttribute('data-theme', currentTheme);
+
+    if (currentTheme === 'light') {
+      themeToggle.checked = true;
+    }
+
+    themeToggle.addEventListener('change', function () {
+      const newTheme = this.checked ? 'light' : 'dark';
+      body.setAttribute('data-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
+    });
+
+    const logoutForm = document.querySelector('.logout-form');
+    const logoutButton = document.querySelector('.logout-btn-menu');
+    const logoutOverlay = document.getElementById('logoutOverlay');
+
+    if (logoutForm && logoutButton) {
+      logoutForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        const logoutIcon = logoutButton.querySelector('i');
+        logoutIcon.classList.add('logout-icon-animation');
+        logoutButton.classList.add('logout-animation');
+
+        const profileMenu = document.getElementById('profile-menu');
+        if (profileMenu) {
+          profileMenu.style.opacity = '0';
+          profileMenu.style.visibility = 'hidden';
+        }
+
+        setTimeout(function () {
+          logoutOverlay.classList.add('active');
+          setTimeout(function () {
+            logoutForm.submit();
+          }, 1500);
+        }, 300);
+      });
+    }
+
+    const closeProfileModal = document.getElementById('closeProfileModal');
+    if (closeProfileModal && profileModal) {
+      closeProfileModal.addEventListener('click', function () {
+        profileModal.classList.remove('active');
+        setTimeout(() => profileModal.style.display = '', 300);
+        document.body.style.overflow = '';
+      });
+
+      profileModal.addEventListener('click', function (e) {
+        if (e.target === profileModal) {
+          profileModal.classList.remove('active');
+          setTimeout(() => profileModal.style.display = '', 300);
+          document.body.style.overflow = '';
+        }
+      });
+    }
+
+    // Perbaikan: Tab bisa dipilih dengan klik area manapun (termasuk ikon/foto)
+    const profileTabs = document.querySelectorAll('.profile-tab');
+    const tabContents = document.querySelectorAll('.profile-tab-content');
+
+    if (profileTabs.length && tabContents.length) {
+      profileTabs.forEach(tab => {
+        tab.addEventListener('click', function (e) {
+          e.preventDefault();
+          profileTabs.forEach(t => t.classList.remove('active'));
+          this.classList.add('active');
+
+          tabContents.forEach(content => content.classList.remove('active'));
+          const tabId = 'tab-' + this.getAttribute('data-tab');
+          const tabContent = document.getElementById(tabId);
+          if (tabContent) tabContent.classList.add('active');
+        });
+      });
+    }
+
+    const photoInput = document.getElementById('profile_photo');
+    const photoPreview = document.getElementById('photoPreview');
+    const photoFilename = document.getElementById('photoFilename');
+    const uploadPhotoBtn = document.getElementById('uploadPhotoBtn');
+
+    if (photoInput) {
+      photoInput.addEventListener('change', function () {
+        if (this.files && this.files[0]) {
+          const file = this.files[0];
+          const reader = new FileReader();
+
+          photoFilename.textContent = file.name;
+          if (uploadPhotoBtn) uploadPhotoBtn.disabled = false;
+
+          reader.onload = function (e) {
+            if (photoPreview) {
+              if (photoPreview.tagName === 'IMG') {
+                photoPreview.src = e.target.result;
+              } else {
+                const photoPlaceholder = document.querySelector('.profile-photo-placeholder');
+                if (photoPlaceholder) {
+                  const photoContainer = photoPlaceholder.parentElement;
+                  photoPlaceholder.remove();
+
+                  const img = document.createElement('img');
+                  img.src = e.target.result;
+                  img.id = 'photoPreview';
+                  img.alt = 'Preview';
+                  photoContainer.appendChild(img);
+                }
+              }
+            }
+          };
+
+          reader.readAsDataURL(file);
+        }
+      });
+    }
+
+    const passwordInput = document.getElementById('password');
+    const confirmPasswordInput = document.getElementById('password_confirmation');
+    const passwordStrength = document.getElementById('passwordStrength');
+    const strengthText = document.getElementById('strengthText');
+
+    if (passwordInput && passwordStrength && strengthText) {
+      passwordInput.addEventListener('input', function () {
+        const password = this.value;
+        let strength = 0;
+        let status = '';
+
+        if (password.length > 0) {
+          if (password.length >= 8) strength += 25;
+          if (password.match(/[a-z]/)) strength += 25;
+          if (password.match(/[A-Z]/)) strength += 25;
+          if (password.match(/[0-9]/) || password.match(/[^a-zA-Z0-9]/)) strength += 25;
+
+          if (strength <= 25) {
+            status = 'Lemah';
+            passwordStrength.style.width = '25%';
+            passwordStrength.style.backgroundPosition = '0% 0%';
+          } else if (strength <= 50) {
+            status = 'Sedang';
+            passwordStrength.style.width = '50%';
+            passwordStrength.style.backgroundPosition = '50% 0%';
+          } else if (strength <= 75) {
+            status = 'Kuat';
+            passwordStrength.style.width = '75%';
+            passwordStrength.style.backgroundPosition = '75% 0%';
+          } else {
+            status = 'Sangat Kuat';
+            passwordStrength.style.width = '100%';
+            passwordStrength.style.backgroundPosition = '100% 0%';
+          }
+        } else {
+          status = 'Belum diisi';
+          passwordStrength.style.width = '0%';
+        }
+
+        strengthText.textContent = status;
+      });
+    }
+
+    const passwordToggles = document.querySelectorAll('.password-toggle');
+
+    if (passwordToggles.length) {
+      passwordToggles.forEach(toggle => {
+        toggle.addEventListener('click', function () {
+          const input = this.parentElement.querySelector('input');
+          const icon = this.querySelector('i');
+
+          if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+          } else {
+            input.type = 'password';
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+          }
+        });
+      });
+    }
+  });
+</script>
+
+
+  <!-- Skrip khusus untuk fungsi modal profil -->
   <script>
+    // Fungsi untuk toggle menu profil
+    function toggleProfileMenu() {
+      const profileMenu = document.getElementById('profile-menu');
+      if (profileMenu.style.opacity === '1') {
+        profileMenu.style.opacity = '0';
+        profileMenu.style.visibility = 'hidden';
+        profileMenu.style.transform = 'translateY(-10px)';
+      } else {
+        profileMenu.style.opacity = '1';
+        profileMenu.style.visibility = 'visible';
+        profileMenu.style.transform = 'translateY(0)';
+      }
+    }
+
+    // Fungsi untuk membuka modal profil
+    function openProfileModal(e) {
+      e.preventDefault();
+      const profileModal = document.getElementById('profileModal');
+
+      // Tutup dropdown profil
+      const profileMenu = document.getElementById('profile-menu');
+      profileMenu.style.opacity = '0';
+      profileMenu.style.visibility = 'hidden';
+
+      // Tampilkan modal
+      profileModal.style.display = 'flex';
+      profileModal.style.justifyContent = 'center';
+      profileModal.style.alignItems = 'center';
+      profileModal.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+
+    // Fungsi untuk menutup modal profil
+    function closeProfileModal() {
+      const profileModal = document.getElementById('profileModal');
+      profileModal.classList.remove('active');
+      setTimeout(function() {
+        profileModal.style.display = 'none';
+      }, 300);
+      document.body.style.overflow = '';
+    }
+
+    // Menambahkan event click untuk area modal
+    document.addEventListener('DOMContentLoaded', function() {
+      const profileModal = document.getElementById('profileModal');
+
+      if (profileModal) {
+        profileModal.addEventListener('click', function(e) {
+          if (e.target === this) {
+            closeProfileModal();
+          }
+        });
+      }
+    });
+  </script>
+
+
+
+  <!-- Script untuk alert password -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Cari elemen penting
+      const passwordForm = document.getElementById('updatePasswordForm');
+      const manualSuccessMsg = document.getElementById('manual-success-message');
+      const profileTabs = document.querySelectorAll('.profile-tab');
+      const passwordTab = document.querySelector('.profile-tab[data-tab="password"]');
+
+      // Fungsi untuk mengaktifkan tab password
+      function activatePasswordTab() {
+        if (!passwordTab) return;
+
+        // Aktifkan tab button
+        profileTabs.forEach(tab => tab.classList.remove('active'));
+        passwordTab.classList.add('active');
+
+        // Aktifkan konten tab
+        const tabContents = document.querySelectorAll('.profile-tab-content');
+        tabContents.forEach(content => content.classList.remove('active'));
+        document.getElementById('tab-password').classList.add('active');
+      }
+
+      // Cek jika form password disubmit
+      if (passwordForm) {
+        passwordForm.addEventListener('submit', function(e) {
+          // Simpan state form submission ke localStorage
+          localStorage.setItem('password_form_submitted', 'true');
+          localStorage.setItem('password_submit_time', Date.now());
+        });
+      }
+
+      // Cek jika ada flag bahwa form telah disubmit sebelumnya
+      const wasSubmitted = localStorage.getItem('password_form_submitted');
+      const submitTime = localStorage.getItem('password_submit_time');
+      const currentTime = Date.now();
+
+      // Jika form baru saja disubmit (dalam 5 detik terakhir)
+      if (wasSubmitted === 'true' && submitTime && (currentTime - submitTime < 5000)) {
+        console.log('Form was recently submitted, showing manual success message');
+
+        // Tampilkan pesan sukses manual
+        if (manualSuccessMsg) {
+          manualSuccessMsg.style.display = 'block';
+
+          // Animasi pesan
+          setTimeout(function() {
+            manualSuccessMsg.style.transition = 'all 0.3s ease';
+            manualSuccessMsg.style.transform = 'scale(1.03)';
+            setTimeout(function() {
+              manualSuccessMsg.style.transform = 'scale(1)';
+            }, 300);
+          }, 500);
+        }
+
+        // Aktifkan tab password
+        activatePasswordTab();
+
+        // Hapus flag agar tidak muncul lagi di refresh berikutnya
+        localStorage.removeItem('password_form_submitted');
+        localStorage.removeItem('password_submit_time');
+      }
+
+      // Cek jika ada success message dari session
+      const sessionSuccessMsg = document.querySelector('.profile-tab-content .alert-success:not(#manual-success-message)');
+      if (sessionSuccessMsg) {
+        console.log('Session success message found, highlighting tab');
+        activatePasswordTab();
+
+        // Animasi pesan
+        setTimeout(function() {
+          sessionSuccessMsg.style.transition = 'all 0.3s ease';
+          sessionSuccessMsg.style.transform = 'scale(1.03)';
+          setTimeout(function() {
+            sessionSuccessMsg.style.transform = 'scale(1)';
+          }, 300);
+        }, 500);
+      }
+    });
+  </script>
+
+
+
+
+
+
+  <script>
+
     document.addEventListener('DOMContentLoaded', function() {
       // Notifikasi dropdown
       const notificationBtn = document.getElementById('notificationBtn');
